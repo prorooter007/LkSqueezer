@@ -16,6 +16,8 @@ MODDIR=${0%/*}
 
 # LKsqueezer is based off this gem ^
 # most of the credits go to the its dev team, I've only tuned some parameters and added a couple specific tweaks to it 
+# some bits taken from Sohil876's LkSqueezer-Mod, found at https://github.com/Sohil876/LkSqueezer-Mod
+
 # @SenpaiYank
 
 # Halt the execution to make sure the system is properly ready and minimize the chances of something overwriting the changes;
@@ -23,7 +25,7 @@ if [[ $MODDIR == "/system/bin" ]]; then
   echo "Dev mode."
 else
   echo "Delaying service..."
-  sleep 56
+  sleep 64
   stop perfd
 fi
 
@@ -39,7 +41,7 @@ fi
 echo -n "" > $LOG_FILE
 #exec &>> $LOG_FILE
 LOG () {
-   echo "[$(date +"%Y/%m/%d.%T")] lksqueezer: $1" > $LOG_FILE
+   echo "[$(date +"%Y/%m/%d.%T")] lksqueezer: $1" >> $LOG_FILE
 }
 
 # Start logging
@@ -60,7 +62,7 @@ echo "GENTLE_FAIR_SLEEPERS" > /sys/kernel/debug/sched_features
 echo "NO_LB_BIAS" >  /sys/kernel/debug/sched_features
 echo "TTWU_QUEUE" > /sys/kernel/debug/sched_features
 echo "NO_RT_PUSH_IPI" >  /sys/kernel/debug/sched_features
-echo "RT_RUNTIME_SHARE" > /sys/kernel/debug/sched_features
+echo "NO_RT_RUNTIME_SHARE" > /sys/kernel/debug/sched_features
 echo "FBT_STRICT_ORDER" > /sys/kernel/debug/sched_features
 echo "NO_EAS_USE_NEED_IDLE" > /sys/kernel/debug/sched_features
 echo "NO_STUNE_BOOST_BIAS_BIG" > /sys/kernel/debug/sched_features
@@ -112,21 +114,21 @@ echo "10000000" > /proc/sys/kernel/sched_wakeup_granularity_ns
 
 # Set the CPU governor to pixel_smurfutil and refine for a wiser frequency selection on MiA1's SoC (S625);
 # also, set the max frequency when the screen is off to 1401Mhz;
-# echo "pixel_smurfutil" > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
-# echo "5" > /sys/devices/system/cpu/cpufreq/pixel_smurfutil/bit_shift1
-# echo "5" > /sys/devices/system/cpu/cpufreq/pixel_smurfutil/bit_shift1_2
-# echo "3" > /sys/devices/system/cpu/cpufreq/pixel_smurfutil/bit_shift2
-# echo "2000" > /sys/devices/system/cpu/cpufreq/pixel_smurfutil/down_rate_limit_us
-# echo "1401600" > /sys/devices/system/cpu/cpufreq/pixel_smurfutil/gold_suspend_max_freq
-# echo "1401600" > /sys/devices/system/cpu/cpufreq/pixel_smurfutil/hispeed_freq
-# echo "80" > /sys/devices/system/cpu/cpufreq/pixel_smurfutil/hispeed_load
-# echo "0" > /sys/devices/system/cpu/cpufreq/pixel_smurfutil/iowait_boost_enable
-# echo "1" > /sys/devices/system/cpu/cpufreq/pixel_smurfutil/pl
-# echo "1401600" > /sys/devices/system/cpu/cpufreq/pixel_smurfutil/silver_suspend_max_freq
-# echo "6" > /sys/devices/system/cpu/cpufreq/pixel_smurfutil/suspend_capacity_factor
-# echo "40" > /sys/devices/system/cpu/cpufreq/pixel_smurfutil/target_load1
-# echo "88" > /sys/devices/system/cpu/cpufreq/pixel_smurfutil/target_load2
-# echo "1000" > /sys/devices/system/cpu/cpufreq/pixel_smurfutil/up_rate_limit_us
+echo "pixel_smurfutil" > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+echo "5" > /sys/devices/system/cpu/cpufreq/pixel_smurfutil/bit_shift1
+echo "5" > /sys/devices/system/cpu/cpufreq/pixel_smurfutil/bit_shift1_2
+echo "3" > /sys/devices/system/cpu/cpufreq/pixel_smurfutil/bit_shift2
+echo "2000" > /sys/devices/system/cpu/cpufreq/pixel_smurfutil/down_rate_limit_us
+echo "1401600" > /sys/devices/system/cpu/cpufreq/pixel_smurfutil/gold_suspend_max_freq
+echo "1401600" > /sys/devices/system/cpu/cpufreq/pixel_smurfutil/hispeed_freq
+echo "80" > /sys/devices/system/cpu/cpufreq/pixel_smurfutil/hispeed_load
+echo "0" > /sys/devices/system/cpu/cpufreq/pixel_smurfutil/iowait_boost_enable
+echo "1" > /sys/devices/system/cpu/cpufreq/pixel_smurfutil/pl
+echo "1401600" > /sys/devices/system/cpu/cpufreq/pixel_smurfutil/silver_suspend_max_freq
+echo "6" > /sys/devices/system/cpu/cpufreq/pixel_smurfutil/suspend_capacity_factor
+echo "40" > /sys/devices/system/cpu/cpufreq/pixel_smurfutil/target_load1
+echo "88" > /sys/devices/system/cpu/cpufreq/pixel_smurfutil/target_load2
+echo "1000" > /sys/devices/system/cpu/cpufreq/pixel_smurfutil/up_rate_limit_us
 # ^ Backup
 
 # Set the CPU governor to lightningutil (same as above but with the tunings already applied) 
@@ -144,22 +146,30 @@ echo "10000000" > /proc/sys/kernel/sched_wakeup_granularity_ns
 #echo "3000" > /sys/devices/system/cpu/cpufreq/lightningutil/down_rate_limit_us
 
 # Aggressively tune stune boost values for better battery life;
-echo "-72" > /dev/stune/background/schedtune.boost
+echo "-64" > /dev/stune/background/schedtune.boost
 echo "-32" > /dev/stune/foreground/schedtune.boost
-echo "-8" > /dev/stune/top-app/schedtune.boost
+echo "0" > /dev/stune/top-app/schedtune.boost
 echo "12" > /sys/module/cpu_boost/parameters/dynamic_stune_boost
 echo "192" > /sys/module/cpu_boost/parameters/dynamic_stune_boost_ms
+
+# Set-up the CPUSet groups for performance and efficiency;
+echo "2-3" > /dev/cpuset/background/cpus
+echo "0-7" > /dev/cpuset/camera-daemon/cpus
+echo "4-7" > /dev/cpuset/foreground/cpus
+echo "0-1" > /dev/cpuset/restricted/cpus
+echo "0-3" > /dev/cpuset/system-background/cpus
+echo "2-7" > /dev/cpuset/top-app/cpus
 
 # Virtual Memory tweaks & enhancements for a (massively?) improved balance between performance and battery life;
 echo "0" > /proc/sys/vm/compact_unevictable_allowed
 echo "0" > /proc/sys/vm/oom_dump_tasks
 echo "1200" > /proc/sys/vm/stat_interval
 echo "100" > /proc/sys/vm/swappiness
-echo "24" > /proc/sys/vm/dirty_ratio
-echo "8" > /proc/sys/vm/dirty_background_ratio
-echo "5000" > /proc/sys/vm/dirty_writeback_centisecs
-echo "750" > /proc/sys/vm/dirty_expire_centisecs
-echo "64" > /proc/sys/vm/vfs_cache_pressure
+echo "12" > /proc/sys/vm/dirty_ratio
+echo "3" > /proc/sys/vm/dirty_background_ratio
+echo "3000" > /proc/sys/vm/dirty_writeback_centisecs
+echo "500" > /proc/sys/vm/dirty_expire_centisecs
+echo "48" > /proc/sys/vm/vfs_cache_pressure
 
 # fstrim the respective partitions for a faster initialization process;
 fstrim /cache
@@ -190,7 +200,7 @@ echo "0" > $i/add_random
 echo "0" > $i/io_poll
 echo "1" > $i/iostats
 echo "0" > $i/nomerges
-echo "1024" > $i/nr_requests
+#echo "1024" > $i/nr_requests
 echo "64" > $i/read_ahead_kb
 echo "0" > $i/rotational
 echo "1" > $i/rq_affinity
@@ -222,8 +232,8 @@ elif [[ $SCHED == "deadline" ]]; then
   LOG "welcome to the deadline gang :D"
 fi;
 
-# Set GPU default power level to 7 (19Mhz) for a better batttery life;
-echo "7" > /sys/class/kgsl/kgsl-3d0/default_pwrlevel
+# Set GPU default power level to 6 (133Mhz) for a better batttery life;
+echo "6" > /sys/class/kgsl/kgsl-3d0/default_pwrlevel
 
 # Enable and adjust adreno idler for a rather battery aggressive behavior;
 echo "Y" > /sys/module/adreno_idler/parameters/adreno_idler_active
@@ -231,14 +241,20 @@ echo "20" > /sys/module/adreno_idler/parameters/adreno_idler_downdifferential
 echo "24" > /sys/module/adreno_idler/parameters/adreno_idler_idlewait
 echo "6144" > /sys/module/adreno_idler/parameters/adreno_idler_idleworkload
 
+# Use RCU_normal instead of RCU_expedited for improved real-time latency, CPU utilization and energy efficiency;
+echo "1" > /sys/kernel/rcu_normal
+
 # Enable adreno boost and set it to low for better gpu up ramping // Reverted in favor of the powerHAL backed boosting; 
-echo 0 > /sys/class/kgsl/kgsl-3d0/devfreq/adrenoboost
+echo "0" > /sys/class/kgsl/kgsl-3d0/devfreq/adrenoboost
 
 # Set the power suspend mode to 3 (Hybrid, a combination between LCD and Autosleep modes);
 echo "3" > /sys/kernel/power_suspend/power_suspend_mode
 
 # Block harmless wakelocks to maximize sleeping time
 echo "qcom_rx_wakelock;wlan;wlan_wow_wl;wlan_extscan_wl;netmgr_wl;NETLINK;7000000.ssusb" > /sys/class/misc/boeffla_wakelock_blocker/wakelock_blocker
+
+# Fully disable kernel printk console log spamming directly for less amount of useless wakeups (reduces overhead);
+echo "0 0 0 0" > /proc/sys/kernel/printk
 
 # IO flush and drop caches;
 sync
